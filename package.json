@@ -1,0 +1,20 @@
+{
+  "name": "uniswap-api-test",
+  "version": "1.0.0",
+  "description": "Script to test Uniswap API",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "node --loader ts-node/esm src/index.ts",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "viem": "^2.7.9"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.19",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
