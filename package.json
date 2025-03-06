@@ -2,17 +2,16 @@
   "name": "uniswap-api-test",
   "version": "1.0.0",
   "description": "Script to test Uniswap API",
-  "type": "module",
   "main": "src/index.ts",
   "scripts": {
     "dev": "DEBUG=bot* dotenv -- nodemon -e ts -x ts-node src/index.ts",
-    "build": "tsc"
+    "build": "ncc build src/index.ts -o public -m"
   },
   "dependencies": {
+    "@vercel/node": "^5.1.11",
     "debug": "^4.4.0",
     "dotenv": "^16.4.7",
     "dotenv-cli": "^8.0.0",
-    "express": "^4.21.2",
     "node-fetch": "^3.3.2",
     "nodemon": "^3.1.9",
     "telegraf": "^4.16.3",

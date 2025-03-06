@@ -1,58 +1,38 @@
+import { VercelRequest, VercelResponse } from '@vercel/node';
+import createDebug from 'debug';
 import { Context, Telegraf } from 'telegraf';
 import { Update } from 'telegraf/typings/core/types/typegram';
-import createDebug from 'debug';
-import express from 'express';
 
-const debug = createDebug('bot:production');
+const debug = createDebug('bot:dev');
 
 const PORT = (process.env.PORT && parseInt(process.env.PORT, 10)) || 3000;
-const DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN;
+const VERCEL_URL = `${process.env.VERCEL_URL}`;
 
-const production = async (bot: Telegraf<Context<Update>>) => {
+const production = async (
+  req: VercelRequest,
+  res: VercelResponse,
+  bot: Telegraf<Context<Update>>,
+) => {
   debug('Bot runs in production mode');
+  debug(`setting webhook: ${VERCEL_URL}`);
 
-  if (!DOMAIN) {
-    throw new Error('DOMAIN environment variable is not set.');
+  if (!VERCEL_URL) {
+    throw new Error('VERCEL_URL is not set.');
   }
 
-  const app = express();
-
-  // Parse the raw body for webhook
-  app.use(express.json());
-
-  const webhookPath = '/webhook';
-  const webhookUrl = `${DOMAIN}${webhookPath}`;
-
-  // Get current webhook info
-  const webhookInfo = await bot.telegram.getWebhookInfo();
-
-  // Update webhook only if it's different
-  if (webhookInfo.url !== webhookUrl) {
-    debug(`deleting webhook`);
+  const getWebhookInfo = await bot.telegram.getWebhookInfo();
+  if (getWebhookInfo.url !== VERCEL_URL + '/api') {
+    debug(`deleting webhook ${VERCEL_URL}`);
     await bot.telegram.deleteWebhook();
-    debug(`setting webhook: ${webhookUrl}`);
-    await bot.telegram.setWebhook(webhookUrl);
+    debug(`setting webhook: ${VERCEL_URL}/api`);
+    await bot.telegram.setWebhook(`${VERCEL_URL}/api`);
   }
 
-  // Handle webhook requests
-  app.post(webhookPath, (req, res) => {
-    bot.handleUpdate(req.body as Update, res);
-  });
-
-  // Health check endpoint
-  app.get('/', (req, res) => {
-    res.send('Bot is running!');
-  });
-
-  // Start express server
-  app.listen(PORT, () => {
-    debug(`Server is running on port ${PORT}`);
-    debug(`Webhook is set to ${webhookUrl}`);
-  });
-
-  // Enable graceful stop
-  process.once('SIGINT', () => bot.stop('SIGINT'));
-  process.once('SIGTERM', () => bot.stop('SIGTERM'));
+  if (req.method === 'POST') {
+    await bot.handleUpdate(req.body as unknown as Update, res);
+  } else {
+    res.status(200).json('Listening to bot events...');
+  }
+  debug(`starting webhook on port: ${PORT}`);
 };
-
 export { production };
