@@ -7,6 +7,7 @@ import {
   newPositionHandler,
   swapAmountHandler,
   positionTypeHandler,
+  viewPositionsHandler,
 } from "./handlers/menuHandlers";
 import { registerCallbackHandlers } from "./callbackHandlers";
 import { VercelRequest, VercelResponse } from "@vercel/node";
@@ -33,6 +34,7 @@ bot.start(startCommand);
 bot.hears("💰 Wallet", walletHandler);
 bot.hears("🔄 Swap", swapHandler);
 bot.hears("📈 New Position", newPositionHandler);
+bot.hears("👁️ View Positions", viewPositionsHandler);
 
 // Register text handlers for swap amounts
 bot.hears(/^0\.\d+\s*mon$/i, swapAmountHandler);

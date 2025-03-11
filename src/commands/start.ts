@@ -15,6 +15,7 @@ export const startCommand = async (ctx: Context) => {
       "*Menu Options:*\n\n" +
       "💰 Wallet - Check balance\n" +
       "📈 New Position - Open liquidity position\n" +
+      "👁️ View Positions - See your open positions\n" +
       "🔄 Swap - Exchange tokens\n\n" +
       "Select an option below or type the name:",
     {
@@ -24,7 +25,10 @@ export const startCommand = async (ctx: Context) => {
           Markup.button.callback("💰 Wallet", "wallet"),
           Markup.button.callback("🔄 Swap", "swap"),
         ],
-        [Markup.button.callback("📈 New Position", "new_position")],
+        [
+          Markup.button.callback("📈 New Position", "new_position"),
+          Markup.button.callback("👁️ View Positions", "view_positions"),
+        ],
       ]),
     }
   );

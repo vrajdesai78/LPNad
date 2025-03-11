@@ -1,8 +1,7 @@
 import axios from "axios";
-import { createWalletClient, http, parseEther } from "viem";
+import { parseEther, publicActions } from "viem";
 import { waitForTransactionReceipt } from "viem/actions";
-import { monadTestnet } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
+import { getOrCreateWallet } from "./wallet";
 
 interface Position {
   tickLower: number;
@@ -31,13 +30,31 @@ interface ApiResponse {
   data: string;
 }
 
-export async function createAndExecuteLPPosition(walletAddress: string) {
+export async function createAndExecuteLPPosition(
+  userId: number,
+  tokenAddress: string
+) {
+  const { client: walletClient } = await getOrCreateWallet(userId);
+
+  const client = walletClient.extend(publicActions);
+
+  const [walletAddress] = await walletClient.getAddresses();
+
   const url =
     "https://trading-api-labs.interface.gateway.uniswap.org/v1/lp/create";
 
   const headers = {
+    accept: "*/*",
+    "accept-language": "en-GB,en;q=0.7",
+    "cache-control": "no-cache",
     "content-type": "application/json",
-    "x-api-key": process.env.API_KEY!,
+    pragma: "no-cache",
+    priority: "u=1, i",
+    "sec-fetch-dest": "empty",
+    "sec-fetch-mode": "cors",
+    "sec-fetch-site": "same-site",
+    "x-api-key": process.env.UNISWAP_API_KEY!,
+    "x-app-version": "",
     "x-request-source": "uniswap-web",
   };
 
@@ -46,16 +63,16 @@ export async function createAndExecuteLPPosition(walletAddress: string) {
     protocol: "V3",
     walletAddress: walletAddress,
     chainId: 10143,
-    independentAmount: "6146",
+    independentAmount: "10000",
     independentToken: "TOKEN_1",
     position: {
-      tickLower: -887270,
-      tickUpper: 887270,
+      tickLower: -887272,
+      tickUpper: 887272,
       pool: {
-        tickSpacing: 60,
+        tickSpacing: 1,
         token0: "0x0000000000000000000000000000000000000000",
-        token1: "0xf817257fed379853cde0fa4f97ab987181b1e5ea",
-        fee: 500,
+        token1: tokenAddress,
+        fee: 100,
       },
     },
   };
@@ -71,18 +88,6 @@ export async function createAndExecuteLPPosition(walletAddress: string) {
     const apiData = response.data as ApiResponse;
     console.log("API Response:", JSON.stringify(apiData, null, 2));
 
-    // Create account from private key
-    const account = privateKeyToAccount(
-      process.env.PRIVATE_KEY! as `0x${string}`
-    );
-
-    // Create wallet client
-    const client = createWalletClient({
-      account,
-      chain: monadTestnet,
-      transport: http(),
-    });
-
     // Use the API response data for the transaction
     const txData = {
       to: apiData.to as `0x${string}`,
@@ -91,7 +96,7 @@ export async function createAndExecuteLPPosition(walletAddress: string) {
     };
 
     // Send transaction
-    const hash = await client.sendTransaction(txData);
+    const hash = await client.sendTransaction(txData as any);
     console.log("Transaction hash:", hash);
 
     // Wait for transaction receipt

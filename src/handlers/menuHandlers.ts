@@ -2,7 +2,9 @@ import { Context } from "telegraf";
 import { Markup } from "telegraf";
 import { executeSwap } from "../core/swap";
 import { createAndExecuteLPPosition } from "../core/position";
+import { fetchPositions, formatPositionDetails } from "../core/positions";
 import { handleCheckBalance } from "../services/wallet";
+import redis from "../services/redis";
 
 // Handler for wallet button
 export const walletHandler = async (ctx: Context) => {
@@ -142,6 +144,12 @@ export const newPositionHandler = async (ctx: Context) => {
 // Handler for position type selection
 export const positionTypeHandler = async (ctx: Context) => {
   try {
+    const userId = ctx.from?.id;
+    if (!userId) {
+      await ctx.reply("No user wallet found.");
+      return;
+    }
+
     // Handle callback query
     if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
       const data = ctx.callbackQuery.data;
@@ -159,9 +167,12 @@ export const positionTypeHandler = async (ctx: Context) => {
       );
 
       // Create and execute a new LP position
-      await createAndExecuteLPPosition(
-        "0xd2790DdD12305551c2c055581B993029232a1202"
+      const result = await createAndExecuteLPPosition(
+        userId,
+        "0x88b8e2161dedc77ef4ab7585569d2415a1c1055d"
       );
+
+      console.log("Result:", result);
 
       await ctx.reply("New position created successfully! ✅");
     }
@@ -173,14 +184,16 @@ export const positionTypeHandler = async (ctx: Context) => {
         await ctx.reply(`Creating a new MON-USDC liquidity position... ⏳`);
         // Create and execute a new LP position
         await createAndExecuteLPPosition(
-          "0xd2790DdD12305551c2c055581B993029232a1202"
+          userId,
+          "0x88b8e2161dedc77ef4ab7585569d2415a1c1055d"
         );
         await ctx.reply("New position created successfully! ✅");
       } else if (text === "mon-weth" || text === "mon weth") {
         await ctx.reply(`Creating a new MON-WETH liquidity position... ⏳`);
         // Create and execute a new LP position
         await createAndExecuteLPPosition(
-          "0xd2790DdD12305551c2c055581B993029232a1202"
+          userId,
+          "0x88b8e2161dedc77ef4ab7585569d2415a1c1055d"
         );
         await ctx.reply("New position created successfully! ✅");
       } else if (text === "custom") {
@@ -194,6 +207,78 @@ export const positionTypeHandler = async (ctx: Context) => {
   } catch (error) {
     console.error("Error in position type handler:", error);
     await ctx.reply("Sorry, there was an error creating your new position.");
+  }
+};
+
+// Handler for view positions button
+export const viewPositionsHandler = async (ctx: Context) => {
+  try {
+    const userId = ctx.from?.id;
+    if (!userId) {
+      await ctx.reply("No user wallet found.");
+      return;
+    }
+
+    // Get the wallet address from Redis
+    const walletAddress = await redis.get<string>(`wallet:${userId}:address`);
+
+    if (!walletAddress) {
+      await ctx.reply(
+        "❌ No wallet found. Please create a wallet first using the /start command."
+      );
+      return;
+    }
+
+    await ctx.reply("🔍 Fetching your open positions... Please wait.");
+
+    console.log("Fetching positions for wallet:", walletAddress);
+
+    // Fetch positions for the wallet
+    const positions = await fetchPositions(walletAddress);
+
+    if (!positions || positions.length === 0) {
+      await ctx.reply(
+        "📊 *No Positions Found*\n\n" +
+          "You don't have any open positions at the moment.\n\n" +
+          "Create a new position using the '📈 New Position' option.",
+        { parse_mode: "Markdown" }
+      );
+      return;
+    }
+
+    // Send a message for each position with details
+    for (let i = 0; i < Math.min(positions.length, 5); i++) {
+      const position = positions[i];
+      await ctx.reply(
+        `📊 *Position ${i + 1} of ${positions.length}*\n${formatPositionDetails(
+          position
+        )}`,
+        {
+          parse_mode: "Markdown",
+          ...Markup.inlineKeyboard([
+            [
+              Markup.button.callback(
+                "📊 View on Uniswap",
+                `view_position_${position.id}`
+              ),
+            ],
+          ]),
+        }
+      );
+    }
+
+    // If there are more than 5 positions, just show a summary
+    if (positions.length > 5) {
+      await ctx.reply(
+        `📊 *Position Summary*\n\n` +
+          `You have ${positions.length} open positions in total.\n` +
+          `Showing the first 5 positions only.`,
+        { parse_mode: "Markdown" }
+      );
+    }
+  } catch (error) {
+    console.error("Error in view positions handler:", error);
+    await ctx.reply("Sorry, there was an error fetching your positions.");
   }
 };
 
@@ -219,6 +304,10 @@ export const menuCallbackHandler = async (ctx: Context) => {
       case "new_position":
         await ctx.answerCbQuery("Opening new position menu...");
         await newPositionHandler(ctx);
+        break;
+      case "view_positions":
+        await ctx.answerCbQuery("Opening view positions menu...");
+        await viewPositionsHandler(ctx);
         break;
       default:
         await ctx.answerCbQuery("Unknown action");

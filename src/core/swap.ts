@@ -32,7 +32,7 @@ const axiosHeaders = {
 // Contract addresses for Base network
 const CONTRACTS = {
   MON: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-  USDC: "0xf817257fed379853cde0fa4f97ab987181b1e5ea",
+  USDC: "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D",
 } as const;
 
 // set up contracts

@@ -11,6 +11,7 @@ import { PrivyClient } from "@privy-io/server-auth";
 // @ts-ignore
 import { createViemAccount } from "@privy-io/server-auth/viem";
 import { config as dotenv } from "dotenv";
+import { privateKeyToAccount } from "viem/accounts";
 
 dotenv();
 
@@ -69,6 +70,10 @@ export const generateWallet = async (userId: number) => {
     privy,
   });
 
+  // const privateKeyAccount = privateKeyToAccount(
+  //   process.env.PRIVATE_KEY! as `0x${string}`
+  // );
+
   const client = createWalletClient({
     account,
     chain: monadTestnet,
@@ -97,6 +102,10 @@ export const getWallet = async (userId: number) => {
 
   // Decrypt the wallet ID
   const walletId = decryptWalletId(encryptedWalletId);
+
+  // const privateKeyAccount = privateKeyToAccount(
+  //   process.env.PRIVATE_KEY! as `0x${string}`
+  // );
 
   // Create an account from the wallet ID
   const account = await createViemAccount({
