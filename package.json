@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@vercel/node": "^5.1.11",
+    "axios": "^1.8.2",
     "debug": "^4.4.0",
     "dotenv": "^16.4.7",
     "dotenv-cli": "^8.0.0",
