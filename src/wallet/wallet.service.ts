@@ -1,19 +1,35 @@
-import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
-import { createPublicClient, http, formatEther } from "viem";
-import { mainnet } from "viem/chains";
+import {
+  createPublicClient,
+  http,
+  formatEther,
+  createWalletClient,
+} from "viem";
+import { base } from "viem/chains";
 import * as CryptoJS from "crypto-js";
 import redis from "../services/redis";
+import { PrivyClient } from "@privy-io/server-auth";
+// @ts-ignore
+import { createViemAccount } from "@privy-io/server-auth/viem";
 
 // Encryption key from environment variables
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "";
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+const PRIVY_APP_ID = process.env.PRIVY_APP_ID;
+const PRIVY_APP_SECRET = process.env.PRIVY_APP_SECRET;
+
+if (!ENCRYPTION_KEY || !PRIVY_APP_ID || !PRIVY_APP_SECRET) {
+  throw new Error("Missing environment variables");
+}
+
+// Privy client
+const privy = new PrivyClient(PRIVY_APP_ID, PRIVY_APP_SECRET);
 
 /**
- * Encrypt a private key using AES encryption
- * @param privateKey - The private key to encrypt
- * @returns Encrypted private key string
+ * Encrypt a wallet ID using AES encryption
+ * @param walletId - The wallet ID to encrypt
+ * @returns Encrypted wallet ID string
  */
-export const encryptPrivateKey = (privateKey: string): string => {
-  return CryptoJS.AES.encrypt(privateKey, ENCRYPTION_KEY).toString();
+export const encryptWalletId = (walletId: string): string => {
+  return CryptoJS.AES.encrypt(walletId, ENCRYPTION_KEY).toString();
 };
 
 /**
@@ -21,8 +37,8 @@ export const encryptPrivateKey = (privateKey: string): string => {
  * @param encryptedPrivateKey - The encrypted private key
  * @returns Decrypted private key string
  */
-export const decryptPrivateKey = (encryptedPrivateKey: string): string => {
-  const bytes = CryptoJS.AES.decrypt(encryptedPrivateKey, ENCRYPTION_KEY);
+export const decryptWalletId = (encryptedWalletId: string): string => {
+  const bytes = CryptoJS.AES.decrypt(encryptedWalletId, ENCRYPTION_KEY);
   return bytes.toString(CryptoJS.enc.Utf8);
 };
 
@@ -32,21 +48,33 @@ export const decryptPrivateKey = (encryptedPrivateKey: string): string => {
  * @returns Wallet address and private key
  */
 export const generateWallet = async (userId: number) => {
-  // Generate a new private key
-  const privateKey = generatePrivateKey();
-
-  // Create an account from the private key
-  const account = privateKeyToAccount(privateKey);
+  // Generate a new wallet
+  const { id, address } = await privy.walletApi.create({
+    chainType: "ethereum",
+  });
 
   // Encrypt the private key
-  const encryptedPrivateKey = encryptPrivateKey(privateKey);
+  const encryptedWalletId = encryptWalletId(id);
 
-  // Store the encrypted private key in Redis
-  await redis.set(`wallet:${userId}`, encryptedPrivateKey);
+  // Store the encrypted wallet ID in Redis
+  await redis.set(`wallet:${userId}`, encryptedWalletId);
+  await redis.set(`wallet:${userId}:address`, address);
+
+  const account = await createViemAccount({
+    walletId: id,
+    address: address as `0x${string}`,
+    privy,
+  });
+
+  const client = createWalletClient({
+    account,
+    chain: base,
+    transport: http(),
+  });
 
   return {
-    address: account.address,
-    privateKey,
+    client,
+    address,
   };
 };
 
@@ -56,22 +84,33 @@ export const generateWallet = async (userId: number) => {
  * @returns Wallet address and private key, or null if not found
  */
 export const getWallet = async (userId: number) => {
-  // Get the encrypted private key from Redis
-  const encryptedPrivateKey = await redis.get<string>(`wallet:${userId}`);
+  // Get the encrypted wallet ID from Redis
+  const encryptedWalletId = await redis.get<string>(`wallet:${userId}`);
+  const address = await redis.get<string>(`wallet:${userId}:address`);
 
-  if (!encryptedPrivateKey) {
+  if (!encryptedWalletId || !address) {
     return null;
   }
 
-  // Decrypt the private key
-  const privateKey = decryptPrivateKey(encryptedPrivateKey);
+  // Decrypt the wallet ID
+  const walletId = decryptWalletId(encryptedWalletId);
 
-  // Create an account from the private key
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  // Create an account from the wallet ID
+  const account = await createViemAccount({
+    walletId: walletId,
+    address: address as `0x${string}`,
+    privy,
+  });
+
+  const client = createWalletClient({
+    account,
+    chain: base,
+    transport: http(),
+  });
 
   return {
-    address: account.address,
-    privateKey,
+    client,
+    address,
   };
 };
 
@@ -81,7 +120,7 @@ export const getWallet = async (userId: number) => {
  * @returns Boolean indicating if the user has a wallet
  */
 export const hasWallet = async (userId: number): Promise<boolean> => {
-  const wallet = await redis.get<string>(`wallet:${userId}`);
+  const wallet = await redis.get<string>(`wallet:${userId}:address`);
   return !!wallet;
 };
 
@@ -93,7 +132,7 @@ export const hasWallet = async (userId: number): Promise<boolean> => {
 export const getWalletBalance = async (address: string): Promise<string> => {
   // Create a public client
   const client = createPublicClient({
-    chain: mainnet,
+    chain: base,
     transport: http(),
   });
 
