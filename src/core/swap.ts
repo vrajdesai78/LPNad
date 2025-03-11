@@ -1,7 +1,5 @@
 import { config as dotenv } from "dotenv";
 import {
-  createWalletClient,
-  http,
   getContract,
   erc20Abi,
   parseUnits,
@@ -12,47 +10,23 @@ import {
   size,
 } from "viem";
 import type { Hex } from "viem";
-import { privateKeyToAccount } from "viem/accounts";
-import { monadTestnet } from "viem/chains";
 import axios from "axios";
+import { getOrCreateWallet } from "./wallet";
 
 // load env vars
 dotenv();
-const { PRIVATE_KEY, ZERO_EX_API_KEY, ALCHEMY_HTTP_TRANSPORT_URL } =
-  process.env;
+const { ZERO_EX_API_KEY, ALCHEMY_HTTP_TRANSPORT_URL } = process.env;
 
 // validate requirements
-if (!PRIVATE_KEY) throw new Error("missing PRIVATE_KEY.");
 if (!ZERO_EX_API_KEY) throw new Error("missing ZERO_EX_API_KEY.");
 if (!ALCHEMY_HTTP_TRANSPORT_URL)
   throw new Error("missing ALCHEMY_HTTP_TRANSPORT_URL.");
-
-// fetch headers
-const headers = new Headers({
-  "Content-Type": "application/json",
-  "0x-api-key": ZERO_EX_API_KEY,
-  "0x-version": "v2",
-});
 
 // Convert Headers to a plain object for axios
 const axiosHeaders = {
   "Content-Type": "application/json",
   "0x-api-key": ZERO_EX_API_KEY,
   "0x-version": "v2",
-};
-
-// setup wallet client
-const client = createWalletClient({
-  account: privateKeyToAccount(`0x${PRIVATE_KEY}` as `0x${string}`),
-  chain: monadTestnet,
-  transport: http(ALCHEMY_HTTP_TRANSPORT_URL),
-}).extend(publicActions);
-
-let address: string;
-
-const initialize = async () => {
-  [address] = await client.getAddresses();
-  console.log("address: ", address);
 };
 
 // Contract addresses for Base network
@@ -62,18 +36,32 @@ const CONTRACTS = {
 } as const;
 
 // set up contracts
-const eth = getContract({
-  address: CONTRACTS.MON,
-  abi: erc20Abi,
-  client,
-});
 
 type TokenType = "MON";
 
-export const executeSwap = async (sellTokenType: TokenType, amount: string) => {
+export const executeSwap = async (
+  sellTokenType: TokenType,
+  amount: string,
+  userId: number
+) => {
   try {
-    // Initialize client and address first
-    await initialize();
+    const { client: walletClient } = await getOrCreateWallet(userId);
+
+    if (!walletClient) {
+      throw new Error("Failed to create wallet client");
+    }
+
+    const client = walletClient.extend(publicActions);
+
+    let address: string;
+
+    [address] = await client.getAddresses();
+
+    const eth = getContract({
+      address: CONTRACTS.MON,
+      abi: erc20Abi,
+      client,
+    });
 
     const sellToken = eth;
     let sellAmount;
@@ -124,7 +112,10 @@ export const executeSwap = async (sellTokenType: TokenType, amount: string) => {
           ]);
           console.log("Approving Permit2 to spend sellToken...", request);
           // set approval
-          const hash = await sellToken.write.approve(request.args);
+          const hash = await sellToken.write.approve(
+            request.args[0],
+            request.args[1]
+          );
           console.log(
             "Approved Permit2 to spend sellToken.",
             await client.waitForTransactionReceipt({ hash })
@@ -250,25 +241,3 @@ export const executeSwap = async (sellTokenType: TokenType, amount: string) => {
     throw error; // Re-throw to be handled by the main function
   }
 };
-
-const main = async () => {
-  try {
-    await initialize();
-    // Execute ETH to USDC swap
-    console.log("Executing ETH to USDC swap...");
-    await executeSwap("MON", "0.001");
-
-    // Wait a few blocks before executing the next transaction
-    console.log("Waiting before executing next swap...");
-    await new Promise((resolve) => setTimeout(resolve, 15000)); // Wait 15 seconds
-
-    // // Execute WETH to USDC swap
-    // console.log("\nExecuting WETH to USDC swap...");
-    // await executeSwap("MON");
-  } catch (error) {
-    console.error("Error executing swaps:", error);
-  }
-};
-
-// Export the main function for direct usage if needed
-export const runSwap = main;

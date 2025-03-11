@@ -13,9 +13,9 @@ export const startCommand = async (ctx: Context) => {
     "Welcome to LPNad! 🚀\n\n" +
       `Your wallet address: \`${wallet.address}\`\n\n` +
       "*Menu Options:*\n\n" +
-      "💰 `Wallet`       - Check balance\n" +
-      "📈 `New Position` - Open liquidity position\n" +
-      "🔄 `Swap`         - Exchange tokens\n\n" +
+      "💰 Wallet - Check balance\n" +
+      "📈 New Position - Open liquidity position\n" +
+      "🔄 Swap - Exchange tokens\n\n" +
       "Select an option below or type the name:",
     {
       parse_mode: "Markdown",

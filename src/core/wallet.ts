@@ -4,12 +4,15 @@ import {
   formatEther,
   createWalletClient,
 } from "viem";
-import { base } from "viem/chains";
+import { monadTestnet } from "viem/chains";
 import * as CryptoJS from "crypto-js";
 import redis from "../services/redis";
 import { PrivyClient } from "@privy-io/server-auth";
 // @ts-ignore
 import { createViemAccount } from "@privy-io/server-auth/viem";
+import { config as dotenv } from "dotenv";
+
+dotenv();
 
 // Encryption key from environment variables
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
@@ -68,8 +71,8 @@ export const generateWallet = async (userId: number) => {
 
   const client = createWalletClient({
     account,
-    chain: base,
-    transport: http(),
+    chain: monadTestnet,
+    transport: http(process.env.ALCHEMY_HTTP_TRANSPORT_URL),
   });
 
   return {
@@ -104,8 +107,8 @@ export const getWallet = async (userId: number) => {
 
   const client = createWalletClient({
     account,
-    chain: base,
-    transport: http(),
+    chain: monadTestnet,
+    transport: http(process.env.ALCHEMY_HTTP_TRANSPORT_URL),
   });
 
   return {
@@ -122,8 +125,8 @@ export const getWallet = async (userId: number) => {
 export const getWalletBalance = async (address: string): Promise<string> => {
   // Create a public client
   const client = createPublicClient({
-    chain: base,
-    transport: http(),
+    chain: monadTestnet,
+    transport: http(process.env.ALCHEMY_HTTP_TRANSPORT_URL),
   });
 
   // Ensure address is properly formatted as 0x-prefixed string

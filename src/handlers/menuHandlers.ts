@@ -99,7 +99,12 @@ export const swapAmountHandler = async (ctx: Context) => {
     }
 
     // Execute the swap with the selected amount
-    await executeSwap("MON", amount);
+    const userId = ctx.from?.id;
+    if (!userId) {
+      await ctx.reply("No user wallet found.");
+      return;
+    }
+    await executeSwap("MON", amount, userId);
 
     await ctx.reply("Swap completed successfully! ✅");
   } catch (error) {
