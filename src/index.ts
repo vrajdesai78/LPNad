@@ -10,6 +10,7 @@ import {
 } from "./handlers/menuHandlers";
 import { registerCallbackHandlers } from "./callbackHandlers";
 import { VercelRequest, VercelResponse } from "@vercel/node";
+import { registerWalletActions } from "./wallet/wallet.handler";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const ENVIRONMENT = process.env.NODE_ENV || "";
@@ -45,3 +46,17 @@ if (ENVIRONMENT !== "production") {
 export const startVercel = async (req: VercelRequest, res: VercelResponse) => {
   await production(req, res, bot);
 };
+
+// Register start command
+bot.start(startCommand);
+
+// Register wallet actions
+registerWalletActions(bot);
+
+// Add action for manage_wallet button
+bot.action("manage_wallet", async (ctx) => {
+  await ctx.answerCbQuery();
+  await ctx.telegram.sendMessage(ctx.from.id, "/wallet", {
+    parse_mode: "Markdown",
+  });
+});
