@@ -1,5 +1,5 @@
 import { Context, Markup } from "telegraf";
-import { getOrCreateWallet, getWalletBalance } from "./wallet.service";
+import { getWalletBalance, getOrCreateWallet } from "../core/wallet";
 
 /**
  * Handle the wallet command
@@ -20,7 +20,7 @@ export const handleWalletCommand = async (ctx: Context) => {
 💼 *Your Wallet*
 
 Address: \`${wallet.address}\`
-Balance: ${balance} ETH
+Balance: ${balance} MON
 
 What would you like to do?
 `;
@@ -56,16 +56,4 @@ Balance: ${balance} MON
 `,
     { parse_mode: "Markdown" }
   );
-};
-
-/**
- * Register wallet-related actions
- * @param bot - Telegraf bot instance
- */
-export const registerWalletActions = (bot: any) => {
-  // Register wallet command
-  bot.command("wallet", handleWalletCommand);
-
-  // Register callback queries
-  bot.action("check_balance", handleCheckBalance);
 };

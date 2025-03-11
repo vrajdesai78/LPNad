@@ -33,9 +33,9 @@ export const encryptWalletId = (walletId: string): string => {
 };
 
 /**
- * Decrypt an encrypted private key
- * @param encryptedPrivateKey - The encrypted private key
- * @returns Decrypted private key string
+ * Decrypt an encrypted wallet ID
+ * @param encryptedWalletId - The encrypted wallet ID
+ * @returns Decrypted wallet ID string
  */
 export const decryptWalletId = (encryptedWalletId: string): string => {
   const bytes = CryptoJS.AES.decrypt(encryptedWalletId, ENCRYPTION_KEY);
@@ -53,7 +53,7 @@ export const generateWallet = async (userId: number) => {
     chainType: "ethereum",
   });
 
-  // Encrypt the private key
+  // Encrypt the wallet ID
   const encryptedWalletId = encryptWalletId(id);
 
   // Store the encrypted wallet ID in Redis
@@ -81,7 +81,7 @@ export const generateWallet = async (userId: number) => {
 /**
  * Get a user's wallet from Redis
  * @param userId - Telegram user ID
- * @returns Wallet address and private key, or null if not found
+ * @returns Wallet address and viem client, or null if not found
  */
 export const getWallet = async (userId: number) => {
   // Get the encrypted wallet ID from Redis
@@ -115,19 +115,9 @@ export const getWallet = async (userId: number) => {
 };
 
 /**
- * Check if a user has a wallet
- * @param userId - Telegram user ID
- * @returns Boolean indicating if the user has a wallet
- */
-export const hasWallet = async (userId: number): Promise<boolean> => {
-  const wallet = await redis.get<string>(`wallet:${userId}:address`);
-  return !!wallet;
-};
-
-/**
  * Get the balance of a wallet
  * @param address - Wallet address
- * @returns Balance in ETH
+ * @returns Balance in MON
  */
 export const getWalletBalance = async (address: string): Promise<string> => {
   // Create a public client
@@ -146,14 +136,14 @@ export const getWalletBalance = async (address: string): Promise<string> => {
     address: formattedAddress,
   });
 
-  // Format the balance to ETH
+  // Format the balance to MON
   return formatEther(balance);
 };
 
 /**
  * Get or create a wallet for a user
  * @param userId - Telegram user ID
- * @returns Wallet address and private key
+ * @returns Wallet address and viem client
  */
 export const getOrCreateWallet = async (userId: number) => {
   // Check if the user already has a wallet

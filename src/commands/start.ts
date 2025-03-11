@@ -1,5 +1,5 @@
 import { Context, Markup } from "telegraf";
-import { getOrCreateWallet, hasWallet } from "../wallet";
+import { getOrCreateWallet } from "../core/wallet";
 
 export const startCommand = async (ctx: Context) => {
   const userId = ctx.from?.id;

@@ -10,13 +10,21 @@ import {
 } from "./handlers/menuHandlers";
 import { registerCallbackHandlers } from "./callbackHandlers";
 import { VercelRequest, VercelResponse } from "@vercel/node";
-import { registerWalletActions } from "./wallet/wallet.handler";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const ENVIRONMENT = process.env.NODE_ENV || "";
 
 // Create single bot instance
 const bot = new Telegraf(BOT_TOKEN);
+
+// Then start bot in development or production mode
+if (ENVIRONMENT !== "production") {
+  development(bot);
+}
+
+export const startVercel = async (req: VercelRequest, res: VercelResponse) => {
+  await production(req, res, bot);
+};
 
 // Register commands first
 bot.start(startCommand);
@@ -37,21 +45,6 @@ bot.hears(
 
 // Register all callback handlers
 registerCallbackHandlers(bot);
-
-// Then start bot in development or production mode
-if (ENVIRONMENT !== "production") {
-  development(bot);
-}
-
-export const startVercel = async (req: VercelRequest, res: VercelResponse) => {
-  await production(req, res, bot);
-};
-
-// Register start command
-bot.start(startCommand);
-
-// Register wallet actions
-registerWalletActions(bot);
 
 // Add action for manage_wallet button
 bot.action("manage_wallet", async (ctx) => {

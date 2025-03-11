@@ -2,12 +2,12 @@ import { Context } from "telegraf";
 import { Markup } from "telegraf";
 import { executeSwap } from "../core/swap";
 import { createAndExecuteLPPosition } from "../core/position";
+import { handleCheckBalance } from "../services/wallet";
 
 // Handler for wallet button
 export const walletHandler = async (ctx: Context) => {
   try {
-    await ctx.reply("Wallet functionality is coming soon! 🚀");
-    // TODO: Implement wallet functionality
+    await handleCheckBalance(ctx);
   } catch (error) {
     console.error("Error in wallet handler:", error);
     await ctx.reply(
