@@ -1,4 +1,4 @@
-import fetch from "node-fetch";
+import axios from "axios";
 import { createWalletClient, http, parseEther } from "viem";
 import { waitForTransactionReceipt } from "viem/actions";
 import { monadTestnet } from "viem/chains";
@@ -22,8 +22,6 @@ interface RequestBody {
   chainId: number;
   independentAmount: string;
   independentToken: string;
-  initialDependentAmount: string;
-  initialPrice: string;
   position: Position;
 }
 
@@ -33,7 +31,7 @@ interface ApiResponse {
   data: string;
 }
 
-async function createAndExecuteLPPosition() {
+export async function createAndExecuteLPPosition(walletAddress: string) {
   const url =
     "https://trading-api-labs.interface.gateway.uniswap.org/v1/lp/create";
 
@@ -45,42 +43,38 @@ async function createAndExecuteLPPosition() {
 
   const body: RequestBody = {
     simulateTransaction: false,
-    protocol: "V4",
-    walletAddress: "0xAEBE6d36f132068408889252B48537b21FEA7683",
+    protocol: "V3",
+    walletAddress: walletAddress,
     chainId: 10143,
-    independentAmount: "100000000000000000",
+    independentAmount: "6146",
     independentToken: "TOKEN_1",
-    initialDependentAmount: "0",
-    initialPrice: "79228162514264337593543950336",
     position: {
-      tickLower: -23040,
-      tickUpper: 0,
+      tickLower: -887270,
+      tickUpper: 887270,
       pool: {
         tickSpacing: 60,
         token0: "0x0000000000000000000000000000000000000000",
-        token1: "0xb2f82d0f38dc453d596ad40a37799446cc89274a",
-        fee: 3000,
+        token1: "0xf817257fed379853cde0fa4f97ab987181b1e5ea",
+        fee: 500,
       },
     },
   };
 
   try {
     // Make API call
-    const response = await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-    });
+    const response = await axios.post(url, body, { headers });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    if (!response.data) {
+      throw new Error(`API response is empty`);
     }
 
-    const apiData = (await response.json()) as ApiResponse;
+    const apiData = response.data as ApiResponse;
     console.log("API Response:", JSON.stringify(apiData, null, 2));
 
     // Create account from private key
-    const account = privateKeyToAccount(process.env.PRIVATE_KEY! as `0x${string}`);
+    const account = privateKeyToAccount(
+      process.env.PRIVATE_KEY! as `0x${string}`
+    );
 
     // Create wallet client
     const client = createWalletClient({
@@ -107,5 +101,3 @@ async function createAndExecuteLPPosition() {
     console.error("Error:", error);
   }
 }
-
-createAndExecuteLPPosition();

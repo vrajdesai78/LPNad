@@ -5,18 +5,27 @@ export const startCommand = async (ctx: Context) => {
   const userId = ctx.from?.id;
   if (!userId) return;
 
-  // Welcome message
-  await ctx.reply("Welcome to LPNad!");
-
   // Get or create a wallet for the user automatically
   const wallet = await getOrCreateWallet(userId);
-  
-  // Send wallet address to user
-  await ctx.reply(`
-Your wallet address:
 
-\`${wallet.address}\`
-
-You can copy this address to receive funds. Use /wallet to check your balance.
-`, { parse_mode: 'Markdown' });
+  // Welcome message
+  await ctx.reply(
+    "Welcome to LPNad! 🚀\n\n" +
+      `Your wallet address: \`${wallet.address}\`\n\n` +
+      "*Menu Options:*\n\n" +
+      "💰 `Wallet`       - Check balance\n" +
+      "📈 `New Position` - Open liquidity position\n" +
+      "🔄 `Swap`         - Exchange tokens\n\n" +
+      "Select an option below or type the name:",
+    {
+      parse_mode: "Markdown",
+      ...Markup.inlineKeyboard([
+        [
+          Markup.button.callback("💰 Wallet", "wallet"),
+          Markup.button.callback("🔄 Swap", "swap"),
+        ],
+        [Markup.button.callback("📈 New Position", "new_position")],
+      ]),
+    }
+  );
 };
