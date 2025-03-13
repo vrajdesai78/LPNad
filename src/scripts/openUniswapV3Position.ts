@@ -216,6 +216,58 @@ async function mintNewPosition(
 ) {
   console.log("Preparing to mint new Uniswap V3 position...");
 
+  // First, approve both tokens for spending
+  console.log("Approving tokens for spending...");
+
+  // For token0, we need to approve if it's not being sent as native MON
+  // (which is only possible if token0 is WMON and we're using unwrapped MON)
+  if (token0.toLowerCase() === WMON_ADDRESS.toLowerCase()) {
+    // If token0 is WMON, we have two options:
+    // 1. Send pre-approved WMON tokens
+    // 2. Send native MON with the transaction (not supported for token0 in Uniswap V3)
+    // We'll go with option 1 for token0
+    console.log(`Approving ${token0Name} as token0`);
+    await approveToken(
+      publicClient,
+      walletClient,
+      token0,
+      token0Name,
+      token0Abi,
+      POSITION_MANAGER_ADDRESS as `0x${string}`,
+      amount0Desired
+    );
+  } else {
+    // If token0 is not WMON (e.g., it's USDT), we need to approve it
+    console.log(`Approving ${token0Name} as token0`);
+    await approveToken(
+      publicClient,
+      walletClient,
+      token0,
+      token0Name,
+      token0Abi,
+      POSITION_MANAGER_ADDRESS as `0x${string}`,
+      amount0Desired
+    );
+  }
+
+  // For token1, we can either approve it or send native MON if it's WMON
+  if (token1.toLowerCase() === WMON_ADDRESS.toLowerCase()) {
+    // If token1 is WMON, we can send native MON with the transaction
+    console.log(`Will send ${token1Name} as native MON, no approval needed`);
+  } else {
+    // If token1 is not WMON (e.g., it's USDT), we need to approve it
+    console.log(`Approving ${token1Name} as token1`);
+    await approveToken(
+      publicClient,
+      walletClient,
+      token1,
+      token1Name,
+      token1Abi,
+      POSITION_MANAGER_ADDRESS as `0x${string}`,
+      amount1Desired
+    );
+  }
+
   // Get token decimals
   let token0Decimals = 18;
   let token1Decimals = 6;
@@ -300,6 +352,9 @@ async function mintNewPosition(
   try {
     console.log("Creating position using multicall...");
 
+    // Prepare the calls for the multicall
+    const calls: `0x${string}`[] = [];
+
     // Create mint parameters
     const mintParams = {
       token0,
@@ -321,24 +376,27 @@ async function mintNewPosition(
       functionName: "mint",
       args: [mintParams],
     });
+    calls.push(mintCall);
 
-    // Encode the refundETH function
-    const refundETHCall = encodeFunctionData({
-      abi: nonfungiblePositionManagerAbi,
-      functionName: "refundETH",
-      args: [],
-    });
-
-    // Create the multicall data
-    const multicallData = [mintCall, refundETHCall];
+    // Add refundETH call if we're sending native MON
+    if (token1.toLowerCase() === WMON_ADDRESS.toLowerCase()) {
+      const refundETHCall = encodeFunctionData({
+        abi: nonfungiblePositionManagerAbi,
+        functionName: "refundETH",
+        args: [],
+      });
+      calls.push(refundETHCall);
+    }
 
     // Determine if we need to send ETH with the transaction
-    // Only needed if one of the tokens is WMON and it's being used as token1
+    // Only needed if token1 is WMON
     let value = 0n;
     if (token1.toLowerCase() === WMON_ADDRESS.toLowerCase()) {
       value = amount1Desired;
       console.log(
-        `Sending ${formatEther(value)} MON with transaction to be wrapped`
+        `Sending ${formatEther(
+          value
+        )} MON with transaction to be wrapped as WMON for token1`
       );
     }
 
@@ -347,8 +405,8 @@ async function mintNewPosition(
       address: POSITION_MANAGER_ADDRESS as `0x${string}`,
       abi: nonfungiblePositionManagerAbi,
       functionName: "multicall",
-      args: [multicallData],
-      value: value, // Send ETH with the transaction if needed
+      args: [calls],
+      value: value, // Send native MON with the transaction if needed
     });
 
     console.log(`Position creation tx hash: ${hash}`);
@@ -586,6 +644,18 @@ async function main() {
 
       await waitForTransaction(publicClient, hash);
       console.log("Wrap transaction confirmed");
+
+      // Check updated WMON balance
+      const updatedWmonBalance = await publicClient.readContract({
+        ...wmonContract,
+        functionName: "balanceOf",
+        args: [account.address],
+      });
+      console.log(
+        `Updated WMON balance: ${formatEther(
+          updatedWmonBalance as bigint
+        )} WMON`
+      );
     }
 
     // Check USDT balance (in a real scenario, you would need to acquire USDT through a faucet or other means)
@@ -637,6 +707,11 @@ async function main() {
     let amount0Desired: bigint;
     let amount1Desired: bigint;
 
+    // Ensure we're using the correct addresses for WMON and USDT
+    console.log(`Using WMON address: ${WMON_ADDRESS}`);
+    console.log(`Using USDT address: ${USDT_ADDRESS}`);
+
+    // Compare addresses in lowercase to ensure correct ordering
     if (WMON_ADDRESS.toLowerCase() < USDT_ADDRESS.toLowerCase()) {
       token0 = WMON_ADDRESS as `0x${string}`;
       token1 = USDT_ADDRESS as `0x${string}`;
@@ -646,6 +721,7 @@ async function main() {
       token1Abi = usdtAbi;
       amount0Desired = WMON_DEPOSIT_AMOUNT;
       amount1Desired = USDT_DEPOSIT_AMOUNT;
+      console.log("WMON is token0 (lower address), USDT is token1");
     } else {
       token0 = USDT_ADDRESS as `0x${string}`;
       token1 = WMON_ADDRESS as `0x${string}`;
@@ -655,11 +731,14 @@ async function main() {
       token1Abi = wmonAbi;
       amount0Desired = USDT_DEPOSIT_AMOUNT;
       amount1Desired = WMON_DEPOSIT_AMOUNT;
+      console.log("USDT is token0 (lower address), WMON is token1");
     }
 
     console.log(
       `Token order: ${token0Name} (${token0}) is token0, ${token1Name} (${token1}) is token1`
     );
+    console.log(`Amount0Desired: ${amount0Desired} ${token0Name}`);
+    console.log(`Amount1Desired: ${amount1Desired} ${token1Name}`);
 
     // Choose operation to perform
     const operation = process.argv[2] || "mint";
