@@ -70,12 +70,12 @@ export const generateWallet = async (userId: number) => {
     privy,
   });
 
-  // const privateKeyAccount = privateKeyToAccount(
-  //   process.env.PRIVATE_KEY! as `0x${string}`
-  // );
+  const privateKeyAccount = privateKeyToAccount(
+    process.env.PRIVATE_KEY! as `0x${string}`
+  );
 
   const client = createWalletClient({
-    account,
+    account: privateKeyAccount,
     chain: monadTestnet,
     transport: http(process.env.ALCHEMY_HTTP_TRANSPORT_URL),
   });
@@ -103,15 +103,15 @@ export const getWallet = async (userId: number) => {
   // Decrypt the wallet ID
   const walletId = decryptWalletId(encryptedWalletId);
 
-  // const privateKeyAccount = privateKeyToAccount(
-  //   process.env.PRIVATE_KEY! as `0x${string}`
-  // );
+  const privateKeyAccount = privateKeyToAccount(
+    process.env.PRIVATE_KEY! as `0x${string}`
+  );
 
   // Create an account from the wallet ID
   const account = await createViemAccount({
     walletId: walletId,
     address: address as `0x${string}`,
-    privy,
+    account: privateKeyAccount,
   });
 
   const client = createWalletClient({

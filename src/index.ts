@@ -11,6 +11,7 @@ import {
 } from "./handlers/menuHandlers";
 import { registerCallbackHandlers } from "./callbackHandlers";
 import { VercelRequest, VercelResponse } from "@vercel/node";
+import { startSingleAddressMonitoring } from "./services/avalancheMonitor";
 
 const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const ENVIRONMENT = process.env.NODE_ENV || "";
@@ -22,6 +23,15 @@ const bot = new Telegraf(BOT_TOKEN);
 if (ENVIRONMENT !== "production") {
   development(bot);
 }
+
+// Start monitoring for all users automatically
+startSingleAddressMonitoring()
+  .then(() => {
+    console.log("Automatic balance monitoring started successfully");
+  })
+  .catch((error) => {
+    console.error(`Failed to start automatic balance monitoring: ${error}`);
+  });
 
 export const startVercel = async (req: VercelRequest, res: VercelResponse) => {
   await production(req, res, bot);

@@ -9,11 +9,13 @@ import {
 } from "@wormhole-foundation/sdk";
 import evm from "@wormhole-foundation/sdk/evm";
 import { SignerStuff, getSigner, getTokenDecimals } from "./helpers";
+import { sendMessageToUser } from "../services/telegram";
 
 export async function bridgeNatively(
   sendingChain: Chain,
   userkey: string,
-  amount: string
+  amount: string,
+  userId?: number
 ) {
   const wh = await wormhole("Testnet", [evm]);
 
@@ -33,18 +35,22 @@ export async function bridgeNatively(
 
   const decimals = await getTokenDecimals(wh, token, sendChain);
 
-  const xfer = await tokenTransfer(wh, {
-    token,
-    amount: amountHelper.units(amountHelper.parse(amt, decimals)),
-    source,
-    destination,
-    delivery: {
-      automatic,
-      nativeGas: nativeGas
-        ? amountHelper.units(amountHelper.parse(nativeGas, decimals))
-        : undefined,
+  const xfer = await tokenTransfer(
+    wh,
+    {
+      token,
+      amount: amountHelper.units(amountHelper.parse(amt, decimals)),
+      source,
+      destination,
+      delivery: {
+        automatic,
+        nativeGas: nativeGas
+          ? amountHelper.units(amountHelper.parse(nativeGas, decimals))
+          : undefined,
+      },
     },
-  });
+    userId
+  );
 
   process.exit(0);
 }
@@ -61,7 +67,8 @@ async function tokenTransfer<N extends Network>(
       nativeGas?: bigint;
     };
     payload?: Uint8Array;
-  }
+  },
+  userId?: number
 ) {
   // EXAMPLE_TOKEN_TRANSFER
   // Create a TokenTransfer object to track the state of the transfer over time
@@ -93,6 +100,21 @@ async function tokenTransfer<N extends Network>(
   console.log(`Wormhole Trasaction ID: ${srcTxids[1] ?? srcTxids[0]}`);
   console.log(" ");
 
+  // Get the Wormhole transaction ID
+  const wormholeTxId = srcTxids[1] ?? srcTxids[0];
+
+  // Send Wormhole transaction ID to the user via Telegram if userId is provided
+  if (userId) {
+    try {
+      await sendMessageToUser(
+        userId,
+        `🔄 *Wormhole Transfer Initiated*\n\nWormhole Transaction ID: \`${wormholeTxId}\`\n\nSource Chain: ${route.source.chain}\nDestination Chain: ${route.destination.chain}`
+      );
+    } catch (error) {
+      console.error("Failed to send Wormhole transaction ID to user:", error);
+    }
+  }
+
   // 2) Wait for the VAA to be signed and ready (not required for auto transfer)
   console.log("Getting Attestation");
   const timeout = 25 * 60 * 1000; // Timeout in milliseconds (25 minutes)
@@ -108,4 +130,16 @@ async function tokenTransfer<N extends Network>(
   console.log(`Completed Transfer: `, destTxids);
   console.log(" ");
   console.log("Transfer completed successfully");
+
+  // Send completion notification to the user via Telegram if userId is provided
+  if (userId) {
+    try {
+      await sendMessageToUser(
+        userId,
+        `✅ *Wormhole Transfer Completed*\n\nWormhole Transaction ID: \`${wormholeTxId}\`\n\nThe transfer from ${route.source.chain} to ${route.destination.chain} has been successfully completed.`
+      );
+    } catch (error) {
+      console.error("Failed to send completion notification to user:", error);
+    }
+  }
 }
