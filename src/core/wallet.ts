@@ -115,7 +115,7 @@ export const getWallet = async (userId: number) => {
   });
 
   const client = createWalletClient({
-    account,
+    account: privateKeyAccount,
     chain: monadTestnet,
     transport: http(process.env.ALCHEMY_HTTP_TRANSPORT_URL),
   });

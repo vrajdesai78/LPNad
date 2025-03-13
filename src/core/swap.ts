@@ -112,10 +112,10 @@ export const executeSwap = async (
           ]);
           console.log("Approving Permit2 to spend sellToken...", request);
           // set approval
-          const hash = await sellToken.write.approve(
+          const hash = await sellToken.write.approve([
             request.args[0],
-            request.args[1]
-          );
+            request.args[1],
+          ]);
           console.log(
             "Approved Permit2 to spend sellToken.",
             await client.waitForTransactionReceipt({ hash })
