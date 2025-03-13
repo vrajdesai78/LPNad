@@ -8,6 +8,7 @@ import {
   swapAmountHandler,
   positionTypeHandler,
   viewPositionsHandler,
+  customTokenHandler,
 } from "./handlers/menuHandlers";
 import { registerCallbackHandlers } from "./callbackHandlers";
 import { VercelRequest, VercelResponse } from "@vercel/node";
@@ -48,6 +49,9 @@ bot.hears("👁️ View Positions", viewPositionsHandler);
 
 // Register text handlers for swap amounts
 bot.hears(/^0\.\d+\s*mon$/i, swapAmountHandler);
+
+// Register handler for Ethereum addresses (custom tokens)
+bot.hears(/^0x[a-fA-F0-9]{40}$/, customTokenHandler);
 
 // Register text handlers for position types
 bot.hears(

@@ -102,7 +102,19 @@ export async function createAndExecuteLPPosition(
     // Wait for transaction receipt
     const receipt = await waitForTransactionReceipt(client, { hash });
     console.log("Transaction receipt:", receipt);
+
+    // Create explorer URL
+    const explorerUrl = `https://testnet.monadexplorer.com/tx/${hash}`;
+    console.log(`See transaction details at: ${explorerUrl}`);
+
+    // Return the result with transaction hash and explorer URL
+    return {
+      success: true,
+      hash,
+      explorerUrl,
+    };
   } catch (error) {
     console.error("Error:", error);
+    throw error;
   }
 }

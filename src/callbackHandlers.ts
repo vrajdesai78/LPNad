@@ -4,7 +4,10 @@ import {
   swapAmountHandler,
   positionTypeHandler,
   viewPositionsHandler,
+  tokenSelectionHandler,
+  customTokenHandler,
 } from "./handlers/menuHandlers";
+import { Markup } from "telegraf";
 
 /**
  * Register all callback handlers with the bot
@@ -15,6 +18,52 @@ export const registerCallbackHandlers = (bot: Telegraf) => {
   bot.action(
     ["wallet", "swap", "new_position", "view_positions"],
     menuCallbackHandler
+  );
+
+  // Back to menu button
+  bot.action("back_to_menu", async (ctx) => {
+    try {
+      await ctx.answerCbQuery("Returning to main menu");
+
+      // Create a new menu message with the main options
+      await ctx.editMessageText(
+        "Welcome to LPNad! 🚀\n\n" +
+          "*Menu Options:*\n\n" +
+          "💰 Wallet - Check balance\n" +
+          "📈 New Position - Open liquidity position\n" +
+          "👁️ View Positions - See your open positions\n" +
+          "🔄 Swap - Exchange tokens\n\n" +
+          "Select an option below or type the name:",
+        {
+          parse_mode: "Markdown",
+          ...Markup.inlineKeyboard([
+            [
+              Markup.button.callback("💰 Wallet", "wallet"),
+              Markup.button.callback("🔄 Swap", "swap"),
+            ],
+            [
+              Markup.button.callback("📈 New Position", "new_position"),
+              Markup.button.callback("👁️ View Positions", "view_positions"),
+            ],
+          ]),
+        }
+      );
+    } catch (error) {
+      console.error("Error handling back to menu:", error);
+      await ctx.reply("Sorry, there was an error returning to the menu.");
+    }
+  });
+
+  // Token selection callbacks
+  bot.action(
+    [
+      "token_USDC",
+      "token_USDT",
+      "token_MOLANDAK",
+      "token_CHOG",
+      "token_CUSTOM",
+    ],
+    tokenSelectionHandler
   );
 
   // Swap amount callbacks

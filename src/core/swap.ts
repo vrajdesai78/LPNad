@@ -32,17 +32,32 @@ const axiosHeaders = {
 // Contract addresses for Base network
 const CONTRACTS = {
   MON: "0xEeeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE",
-  USDC: "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D",
+  USDC: "0xf817257fed379853cDe0fa4F97AB987181B1E5Ea",
+  USDT: "0x88b8E2161DEDC77EF4ab7585569D2415a1C1055D",
+  MOLANDAK: "0x0F0BDEbF0F83cD1EE3974779Bcb7315f9808c714",
+  CHOG: "0xE0590015A873bF326bd645c3E1266d4db41C4E6B",
 } as const;
 
 // set up contracts
 
-type TokenType = "MON";
+export type TokenType =
+  | "MON"
+  | "USDC"
+  | "USDT"
+  | "MOLANDAK"
+  | "CHOG"
+  | "CUSTOM";
+type TokenAddress = string;
+
+// Store user's custom token addresses
+const userCustomTokens: Record<number, TokenAddress> = {};
 
 export const executeSwap = async (
   sellTokenType: TokenType,
   amount: string,
-  userId: number
+  userId: number,
+  buyTokenType: TokenType = "USDC",
+  customTokenAddress?: string
 ) => {
   try {
     const { client: walletClient } = await getOrCreateWallet(userId);
@@ -66,6 +81,19 @@ export const executeSwap = async (
     const sellToken = eth;
     let sellAmount;
 
+    // Determine buy token address
+    let buyTokenAddress: TokenAddress = CONTRACTS.USDC as TokenAddress; // Default
+
+    if (buyTokenType === "CUSTOM" && customTokenAddress) {
+      buyTokenAddress = customTokenAddress;
+      // Store the custom address for this user
+      userCustomTokens[userId] = customTokenAddress;
+    } else if (buyTokenType !== "CUSTOM" && buyTokenType in CONTRACTS) {
+      buyTokenAddress = CONTRACTS[
+        buyTokenType as keyof typeof CONTRACTS
+      ] as TokenAddress;
+    }
+
     // handle ETH separately (no need to call decimals on ETH)
     if (sellToken.address === CONTRACTS.MON) {
       sellAmount = parseUnits(amount, 18); // ETH has 18 decimals
@@ -78,7 +106,7 @@ export const executeSwap = async (
     const priceParams = new URLSearchParams({
       chainId: client.chain.id.toString(),
       sellToken: sellToken.address,
-      buyToken: CONTRACTS.USDC,
+      buyToken: buyTokenAddress,
       sellAmount: sellAmount.toString(),
       taker: client.account.address,
     });
@@ -214,9 +242,15 @@ export const executeSwap = async (
       });
       console.log("Transaction hash:", transaction);
       console.log("Transaction status:", receipt.status);
-      console.log(
-        `See tx details at https://testnet.monadexplorer.com/tx/${transaction}`
-      );
+      const explorerUrl = `https://testnet.monadexplorer.com/tx/${transaction}`;
+      console.log(`See tx details at ${explorerUrl}`);
+
+      // Return transaction details
+      return {
+        success: true,
+        hash: transaction,
+        explorerUrl,
+      };
     } else if (signature && quote.transaction.data) {
       const signedTransaction = await client.signTransaction({
         ...commonTxParams,
@@ -230,9 +264,15 @@ export const executeSwap = async (
       const receipt = await client.waitForTransactionReceipt({ hash });
       console.log("Transaction hash:", hash);
       console.log("Transaction status:", receipt.status);
-      console.log(
-        `See tx details at https://testnet.monadexplorer.com/tx/${hash}`
-      );
+      const explorerUrl = `https://testnet.monadexplorer.com/tx/${hash}`;
+      console.log(`See tx details at ${explorerUrl}`);
+
+      // Return transaction details
+      return {
+        success: true,
+        hash,
+        explorerUrl,
+      };
     } else {
       throw new Error("Failed to obtain a signature, transaction not sent.");
     }
