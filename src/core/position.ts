@@ -1,17 +1,11 @@
 import { config as dotenvConfig } from "dotenv";
 import {
-  createWalletClient,
-  http,
   parseEther,
   encodeFunctionData,
   formatEther,
-  createPublicClient,
   maxUint256,
   parseUnits,
-  publicActions,
 } from "viem";
-import { monadTestnet } from "viem/chains";
-import { privateKeyToAccount } from "viem/accounts";
 import { nonfungiblePositionManagerAbi } from "../utils/abi/nonfungiblePositionManager-abi";
 import { wmonAbi } from "../utils/abi/wmon-abi";
 import { usdtAbi } from "../utils/abi/usdt-abi";
@@ -19,6 +13,7 @@ import {
   createReliablePublicClient,
   createReliableWalletClient,
 } from "../utils/rpcClient";
+import { getWallet } from "./wallet";
 
 // Load environment variables
 dotenvConfig();
@@ -596,12 +591,14 @@ export async function createETH_USDTPosition(userId: number) {
     throw new Error("PRIVATE_KEY not found in environment variables");
   }
 
-  const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+  const account = await getWallet(userId);
+  if (!account) {
+    throw new Error("Account not found");
+  }
   console.log(`Using account: ${account.address}`);
 
   // Create wallet client with retry logic and extend with publicActions
-  const walletClient =
-    createReliableWalletClient(account).extend(publicActions);
+  const walletClient = account.client;
 
   // Create public client with retry logic
   const publicClient = createReliablePublicClient();
@@ -609,7 +606,7 @@ export async function createETH_USDTPosition(userId: number) {
   // Check native balance
   console.log("Checking balances...");
   const nativeBalance = await publicClient.getBalance({
-    address: account.address,
+    address: account.address as `0x${string}`,
   });
   console.log(`Native MON balance: ${formatEther(nativeBalance)} MON`);
 
@@ -636,7 +633,7 @@ export async function createETH_USDTPosition(userId: number) {
         ...wmonContract,
         functionName: "deposit",
         value: WMON_DEPOSIT_AMOUNT,
-        account: account,
+        account: account.address as `0x${string}`,
       });
 
       const hash = await walletClient.writeContract(request);

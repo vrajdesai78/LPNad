@@ -1,23 +1,14 @@
-import {
-  createPublicClient,
-  http,
-  formatEther,
-  createWalletClient,
-  publicActions,
-} from "viem";
-import { monadTestnet } from "viem/chains";
+import { formatEther, publicActions } from "viem";
 import * as CryptoJS from "crypto-js";
 import redis from "../services/redis";
 import { PrivyClient } from "@privy-io/server-auth";
 // @ts-ignore
 import { createViemAccount } from "@privy-io/server-auth/viem";
 import { config as dotenv } from "dotenv";
-import { privateKeyToAccount } from "viem/accounts";
 // Import our new retry logic
 import {
   createReliablePublicClient,
   createReliableWalletClient,
-  createReliableWalletClientFromPrivateKey,
 } from "../utils/rpcClient";
 
 dotenv();
@@ -71,13 +62,11 @@ export const generateWallet = async (userId: number) => {
   await redis.set(`wallet:${userId}`, encryptedWalletId);
   await redis.set(`wallet:${userId}:address`, address);
 
-  // const account = await createViemAccount({
-  //   walletId: id,
-  //   address: address as `0x${string}`,
-  //   privy,
-  // });
-
-  const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+  const account = await createViemAccount({
+    walletId: id,
+    address: address as `0x${string}`,
+    privy,
+  });
 
   // Use our reliable wallet client with retry logic
   const client = createReliableWalletClient(account).extend(publicActions);
@@ -106,13 +95,11 @@ export const getWallet = async (userId: number) => {
   const walletId = decryptWalletId(encryptedWalletId);
 
   // Create an account from the wallet ID
-  // const account = await createViemAccount({
-  //   walletId: walletId,
-  //   address: address as `0x${string}`,
-  //   privy,
-  // });
-
-  const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+  const account = await createViemAccount({
+    walletId: walletId,
+    address: address as `0x${string}`,
+    privy,
+  });
 
   // Use our reliable wallet client with retry logic
   const client = createReliableWalletClient(account).extend(publicActions);
