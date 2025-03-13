@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "scripts": {
     "dev": "DEBUG=bot* dotenv -- nodemon -e ts -x ts-node src/index.ts",
-    "build": "ncc build src/index.ts -o public -m"
+    "build": "tsc"
   },
   "dependencies": {
     "@privy-io/server-auth": "^1.18.12",
