@@ -1,5 +1,34 @@
 import { Context, Markup } from "telegraf";
 import { getWalletBalance, getOrCreateWallet } from "../core/wallet";
+import { getMonPrice } from "../core/pyth";
+
+/**
+ * Get wallet balance with USD value
+ * @param address - Wallet address
+ * @returns Balance in MON and USD value
+ */
+export const getWalletBalanceWithUSD = async (address: string) => {
+  // Get MON balance
+  const monBalance = await getWalletBalance(address);
+
+  // Get MON price in USD
+  const monPriceData = await getMonPrice();
+
+  // Calculate USD value
+  let usdValue = "N/A";
+  if (monPriceData.price !== undefined && monPriceData.decimals !== undefined) {
+    const monPriceUSD =
+      Number(monPriceData.price) / Math.pow(10, Number(monPriceData.decimals));
+    const balanceNum = parseFloat(monBalance);
+    const usdValueNum = balanceNum * monPriceUSD;
+    usdValue = usdValueNum.toFixed(2);
+  }
+
+  return {
+    monBalance,
+    usdValue,
+  };
+};
 
 /**
  * Handle the wallet command
@@ -14,13 +43,15 @@ export const handleWalletCommand = async (ctx: Context) => {
 
   // Get or create wallet automatically
   const wallet = await getOrCreateWallet(userId);
-  const balance = await getWalletBalance(wallet.address);
+  const { monBalance, usdValue } = await getWalletBalanceWithUSD(
+    wallet.address
+  );
 
   const message = `
 💼 *Your Wallet*
 
 Address: \`${wallet.address}\`
-Balance: ${balance} MON
+Balance: ${monBalance} MON (≈ $${usdValue} USD)
 
 What would you like to do?
 `;
@@ -45,14 +76,16 @@ export const handleCheckBalance = async (ctx: Context) => {
   }
 
   const wallet = await getOrCreateWallet(userId);
-  const balance = await getWalletBalance(wallet.address);
+  const { monBalance, usdValue } = await getWalletBalanceWithUSD(
+    wallet.address
+  );
 
   await ctx.reply(
     `
 💰 *Wallet Balance*
 
 Address: \`${wallet.address}\`
-Balance: ${balance} MON
+Balance: ${monBalance} MON (≈ $${usdValue} USD)
 `,
     { parse_mode: "Markdown" }
   );

@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@privy-io/server-auth": "^1.18.12",
+    "@pythnetwork/hermes-client": "^2.0.0",
     "@types/crypto-js": "^4.2.2",
     "@uniswap/sdk-core": "^7.7.2",
     "@uniswap/v3-sdk": "^3.25.2",
