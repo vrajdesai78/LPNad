@@ -3,6 +3,7 @@ import {
   http,
   formatEther,
   createWalletClient,
+  publicActions,
 } from "viem";
 import { monadTestnet } from "viem/chains";
 import * as CryptoJS from "crypto-js";
@@ -12,6 +13,12 @@ import { PrivyClient } from "@privy-io/server-auth";
 import { createViemAccount } from "@privy-io/server-auth/viem";
 import { config as dotenv } from "dotenv";
 import { privateKeyToAccount } from "viem/accounts";
+// Import our new retry logic
+import {
+  createReliablePublicClient,
+  createReliableWalletClient,
+  createReliableWalletClientFromPrivateKey,
+} from "../utils/rpcClient";
 
 dotenv();
 
@@ -64,21 +71,16 @@ export const generateWallet = async (userId: number) => {
   await redis.set(`wallet:${userId}`, encryptedWalletId);
   await redis.set(`wallet:${userId}:address`, address);
 
-  const account = await createViemAccount({
-    walletId: id,
-    address: address as `0x${string}`,
-    privy,
-  });
+  // const account = await createViemAccount({
+  //   walletId: id,
+  //   address: address as `0x${string}`,
+  //   privy,
+  // });
 
-  const privateKeyAccount = privateKeyToAccount(
-    process.env.PRIVATE_KEY! as `0x${string}`
-  );
+  const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
 
-  const client = createWalletClient({
-    account: privateKeyAccount,
-    chain: monadTestnet,
-    transport: http(process.env.ALCHEMY_HTTP_TRANSPORT_URL),
-  });
+  // Use our reliable wallet client with retry logic
+  const client = createReliableWalletClient(account).extend(publicActions);
 
   return {
     client,
@@ -103,22 +105,17 @@ export const getWallet = async (userId: number) => {
   // Decrypt the wallet ID
   const walletId = decryptWalletId(encryptedWalletId);
 
-  const privateKeyAccount = privateKeyToAccount(
-    process.env.PRIVATE_KEY! as `0x${string}`
-  );
-
   // Create an account from the wallet ID
-  const account = await createViemAccount({
-    walletId: walletId,
-    address: address as `0x${string}`,
-    account: privateKeyAccount,
-  });
+  // const account = await createViemAccount({
+  //   walletId: walletId,
+  //   address: address as `0x${string}`,
+  //   privy,
+  // });
 
-  const client = createWalletClient({
-    account: privateKeyAccount,
-    chain: monadTestnet,
-    transport: http(process.env.ALCHEMY_HTTP_TRANSPORT_URL),
-  });
+  const account = privateKeyToAccount(process.env.PRIVATE_KEY as `0x${string}`);
+
+  // Use our reliable wallet client with retry logic
+  const client = createReliableWalletClient(account).extend(publicActions);
 
   return {
     client,
@@ -132,11 +129,8 @@ export const getWallet = async (userId: number) => {
  * @returns Balance in MON
  */
 export const getWalletBalance = async (address: string): Promise<string> => {
-  // Create a public client
-  const client = createPublicClient({
-    chain: monadTestnet,
-    transport: http(process.env.ALCHEMY_HTTP_TRANSPORT_URL),
-  });
+  // Create a public client with retry logic
+  const client = createReliablePublicClient();
 
   // Ensure address is properly formatted as 0x-prefixed string
   const formattedAddress = address.startsWith("0x")

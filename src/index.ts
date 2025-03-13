@@ -55,7 +55,15 @@ bot.hears(/^0x[a-fA-F0-9]{40}$/, customTokenHandler);
 
 // Register text handlers for position types
 bot.hears(
-  ["mon-usdc", "mon usdc", "mon-weth", "mon weth", "custom"],
+  [
+    "mon-usdc",
+    "mon usdc",
+    "mon-weth",
+    "mon weth",
+    "custom",
+    "usdt-eth",
+    "usdt eth",
+  ],
   positionTypeHandler
 );
 

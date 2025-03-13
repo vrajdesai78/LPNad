@@ -104,11 +104,11 @@ export const executeSwap = async (
 
     // 1. fetch price
     const priceParams = new URLSearchParams({
-      chainId: client.chain.id.toString(),
+      chainId: client.chain?.id.toString() ?? "",
       sellToken: sellToken.address,
       buyToken: buyTokenAddress,
       sellAmount: sellAmount.toString(),
-      taker: client.account.address,
+      taker: client.account?.address ?? "",
     });
 
     const priceResponse = await axios.get(
@@ -134,16 +134,20 @@ export const executeSwap = async (
       // Check if allowance is required
       if (price.issues.allowance !== null) {
         try {
-          const { request } = await sellToken.simulate.approve([
-            price.issues.allowance.spender,
-            maxUint256,
-          ]);
-          console.log("Approving Permit2 to spend sellToken...", request);
-          // set approval
-          const hash = await sellToken.write.approve([
-            request.args[0],
-            request.args[1],
-          ]);
+          // Simulate the approve transaction first
+          const { request } = await client.simulateContract({
+            address: sellToken.address,
+            abi: erc20Abi,
+            functionName: "approve",
+            args: [price.issues.allowance.spender, maxUint256],
+            account: client.account,
+          });
+
+          console.log("Approving Permit2 to spend sellToken...");
+
+          // Execute the approve transaction
+          const hash = await client.writeContract(request);
+
           console.log(
             "Approved Permit2 to spend sellToken.",
             await client.waitForTransactionReceipt({ hash })
@@ -203,6 +207,10 @@ export const executeSwap = async (
     }
 
     // 6. submit txn with permit2 signature
+    if (!client.account) {
+      throw new Error("Account is not defined");
+    }
+
     const nonce = await client.getTransactionCount({
       address: client.account.address,
     });

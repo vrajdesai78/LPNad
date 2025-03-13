@@ -74,7 +74,12 @@ export const registerCallbackHandlers = (bot: Telegraf) => {
 
   // Position type callbacks
   bot.action(
-    ["position_mon_usdc", "position_mon_weth", "position_custom"],
+    [
+      "position_mon_usdc",
+      "position_mon_weth",
+      "position_custom",
+      "position_usdt_eth",
+    ],
     positionTypeHandler
   );
 

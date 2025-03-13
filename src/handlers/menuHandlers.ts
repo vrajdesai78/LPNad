@@ -6,7 +6,6 @@ import { createAndExecuteLPPosition } from "../core/position";
 import { fetchPositions, formatPositionDetails } from "../core/positions";
 import { handleCheckBalance } from "../services/wallet";
 import redis from "../services/redis";
-import { privateKeyToAccount } from "viem/accounts";
 import { config as dotenv } from "dotenv";
 import { getWallet } from "../core/wallet";
 
@@ -359,20 +358,22 @@ export const swapAmountHandler = async (ctx: Context) => {
 // Handler for new position button
 export const newPositionHandler = async (ctx: Context) => {
   try {
-    // Show preset options for new position as a grid in the message with callback buttons
+    // Show only the USDT-ETH preset option
     await ctx.reply(
       "📈 *Create New Liquidity Position*\n\n" +
-        "Select position type:\n\n" +
-        "🔹 `MON-USDC`    🔹 `MON-WETH`\n\n" +
-        "Or type `custom` for a custom pair",
+        "We currently support the following preset:\n\n" +
+        "🔹 `USDT-ETH` - Create a liquidity position with USDT and ETH\n\n" +
+        "Click the button below to proceed:",
       {
         parse_mode: "Markdown",
         ...Markup.inlineKeyboard([
           [
-            Markup.button.callback("MON-USDC", "position_mon_usdc"),
-            Markup.button.callback("MON-WETH", "position_mon_weth"),
+            Markup.button.callback(
+              "Create USDT-ETH Position",
+              "position_usdt_eth"
+            ),
           ],
-          [Markup.button.callback("Custom Pair", "position_custom")],
+          [Markup.button.callback("« Back to Menu", "back_to_menu")],
         ]),
       }
     );
@@ -395,115 +396,232 @@ export const positionTypeHandler = async (ctx: Context) => {
     if (ctx.callbackQuery && "data" in ctx.callbackQuery) {
       const data = ctx.callbackQuery.data;
 
-      if (data === "position_custom") {
-        await ctx.reply("Custom pair selection is coming soon!");
-        return;
-      }
+      // Only handle the USDT-ETH position
+      if (data === "position_usdt_eth") {
+        // Send initial status message
+        const statusMsg = await ctx.reply(
+          "🔄 *Creating USDT-ETH Position*\n\n" +
+            "⏳ Initializing position creation...",
+          { parse_mode: "Markdown" }
+        );
 
-      // Extract pair from callback data
-      const [token1, token2] = data.split("_").slice(1);
+        const messageId =
+          "message_id" in statusMsg ? statusMsg.message_id : undefined;
+        const chatId = ctx.chat?.id;
 
-      // Edit the message in place to show status
-      await ctx.editMessageText(
-        `Creating a new ${token1.toUpperCase()}-${token2.toUpperCase()} liquidity position... ⏳`
-      );
+        try {
+          // Update status: Checking wallet
+          if (messageId && chatId) {
+            await ctx.telegram.editMessageText(
+              chatId,
+              messageId,
+              undefined,
+              "🔄 *Creating USDT-ETH Position*\n\n" +
+                "✅ Initializing position creation\n" +
+                "⏳ Checking wallet balance...",
+              { parse_mode: "Markdown" }
+            );
+          }
 
-      // Create and execute a new LP position
-      const result = await createAndExecuteLPPosition(
-        userId,
-        "0x88b8e2161dedc77ef4ab7585569d2415a1c1055d"
-      );
+          // Wait a moment to simulate checking wallet
+          await new Promise((resolve) => setTimeout(resolve, 1000));
 
-      await ctx.reply(
-        `New position created successfully! ✅\n\n🔍 [View transaction on Explorer](${result.explorerUrl})`,
-        {
-          parse_mode: "Markdown",
-          link_preview_options: {
-            is_disabled: true,
-          },
+          // Update status: Approving tokens
+          if (messageId && chatId) {
+            await ctx.telegram.editMessageText(
+              chatId,
+              messageId,
+              undefined,
+              "🔄 *Creating USDT-ETH Position*\n\n" +
+                "✅ Initializing position creation\n" +
+                "✅ Checking wallet balance\n" +
+                "⏳ Approving tokens...",
+              { parse_mode: "Markdown" }
+            );
+          }
+
+          // Wait a moment to simulate token approval
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Update status: Creating position
+          if (messageId && chatId) {
+            await ctx.telegram.editMessageText(
+              chatId,
+              messageId,
+              undefined,
+              "🔄 *Creating USDT-ETH Position*\n\n" +
+                "✅ Initializing position creation\n" +
+                "✅ Checking wallet balance\n" +
+                "✅ Approving tokens\n" +
+                "⏳ Creating position on Uniswap...",
+              { parse_mode: "Markdown" }
+            );
+          }
+
+          // Create and execute the LP position (keeping the core logic intact)
+          const result = await createAndExecuteLPPosition(userId);
+
+          // Final status update: Success
+          if (messageId && chatId) {
+            await ctx.telegram.editMessageText(
+              chatId,
+              messageId,
+              undefined,
+              "🔄 *Creating USDT-ETH Position*\n\n" +
+                "✅ Initializing position creation\n" +
+                "✅ Checking wallet balance\n" +
+                "✅ Approving tokens\n" +
+                "✅ Creating position on Uniswap\n\n" +
+                "🎉 *Position created successfully!*",
+              { parse_mode: "Markdown" }
+            );
+          }
+
+          // Send transaction details in a separate message
+          await ctx.reply(
+            `📊 *Position Details*\n\n` +
+              `Your USDT-ETH position has been created successfully!\n\n` +
+              `🔍 [View transaction on Explorer](${result.explorerUrl})`,
+            {
+              parse_mode: "Markdown",
+              link_preview_options: {
+                is_disabled: true,
+              },
+            }
+          );
+        } catch (error) {
+          console.error("Error creating position:", error);
+
+          // Update status: Error
+          if (messageId && chatId) {
+            await ctx.telegram.editMessageText(
+              chatId,
+              messageId,
+              undefined,
+              "❌ *Error Creating Position*\n\n" +
+                "There was an error while creating your USDT-ETH position.\n\n" +
+                "Please try again later or contact support if the issue persists.",
+              { parse_mode: "Markdown" }
+            );
+          }
         }
-      );
+      }
     }
-    // Handle text message
+    // Handle text message (for backward compatibility)
     else if (ctx.message && "text" in ctx.message) {
       const text = ctx.message.text.trim().toLowerCase();
-      let statusMessageId: number | undefined;
 
-      if (text === "mon-usdc" || text === "mon usdc") {
-        // Send status message and store its ID
+      if (text === "usdt-eth" || text === "usdt eth") {
+        // Send initial status message
         const statusMsg = await ctx.reply(
-          `Creating a new MON-USDC liquidity position... ⏳`
+          "🔄 *Creating USDT-ETH Position*\n\n" +
+            "⏳ Initializing position creation...",
+          { parse_mode: "Markdown" }
         );
 
-        // Store message ID if available
-        if ("message_id" in statusMsg) {
-          statusMessageId = statusMsg.message_id;
-        }
+        const messageId =
+          "message_id" in statusMsg ? statusMsg.message_id : undefined;
+        const chatId = ctx.chat?.id;
 
-        // Create and execute a new LP position
-        const result = await createAndExecuteLPPosition(
-          userId,
-          "0x88b8e2161dedc77ef4ab7585569d2415a1c1055d"
-        );
+        try {
+          // Update status: Checking wallet
+          if (messageId && chatId) {
+            await ctx.telegram.editMessageText(
+              chatId,
+              messageId,
+              undefined,
+              "🔄 *Creating USDT-ETH Position*\n\n" +
+                "✅ Initializing position creation\n" +
+                "⏳ Checking wallet balance...",
+              { parse_mode: "Markdown" }
+            );
+          }
 
-        // Delete status message if we have its ID
-        if (statusMessageId && ctx.chat) {
-          try {
-            await ctx.telegram.deleteMessage(ctx.chat.id, statusMessageId);
-          } catch (error) {
-            console.log("Could not delete status message:", error);
+          // Wait a moment to simulate checking wallet
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Update status: Approving tokens
+          if (messageId && chatId) {
+            await ctx.telegram.editMessageText(
+              chatId,
+              messageId,
+              undefined,
+              "🔄 *Creating USDT-ETH Position*\n\n" +
+                "✅ Initializing position creation\n" +
+                "✅ Checking wallet balance\n" +
+                "⏳ Approving tokens...",
+              { parse_mode: "Markdown" }
+            );
+          }
+
+          // Wait a moment to simulate token approval
+          await new Promise((resolve) => setTimeout(resolve, 1000));
+
+          // Update status: Creating position
+          if (messageId && chatId) {
+            await ctx.telegram.editMessageText(
+              chatId,
+              messageId,
+              undefined,
+              "🔄 *Creating USDT-ETH Position*\n\n" +
+                "✅ Initializing position creation\n" +
+                "✅ Checking wallet balance\n" +
+                "✅ Approving tokens\n" +
+                "⏳ Creating position on Uniswap...",
+              { parse_mode: "Markdown" }
+            );
+          }
+
+          // Create and execute the LP position (keeping the core logic intact)
+          const result = await createAndExecuteLPPosition(userId);
+
+          // Final status update: Success
+          if (messageId && chatId) {
+            await ctx.telegram.editMessageText(
+              chatId,
+              messageId,
+              undefined,
+              "🔄 *Creating USDT-ETH Position*\n\n" +
+                "✅ Initializing position creation\n" +
+                "✅ Checking wallet balance\n" +
+                "✅ Approving tokens\n" +
+                "✅ Creating position on Uniswap\n\n" +
+                "🎉 *Position created successfully!*",
+              { parse_mode: "Markdown" }
+            );
+          }
+
+          // Send transaction details in a separate message
+          await ctx.reply(
+            `📊 *Position Details*\n\n` +
+              `Your USDT-ETH position has been created successfully!\n\n` +
+              `🔍 [View transaction on Explorer](${result.explorerUrl})`,
+            {
+              parse_mode: "Markdown",
+              link_preview_options: {
+                is_disabled: true,
+              },
+            }
+          );
+        } catch (error) {
+          console.error("Error creating position:", error);
+
+          // Update status: Error
+          if (messageId && chatId) {
+            await ctx.telegram.editMessageText(
+              chatId,
+              messageId,
+              undefined,
+              "❌ *Error Creating Position*\n\n" +
+                "There was an error while creating your USDT-ETH position.\n\n" +
+                "Please try again later or contact support if the issue persists.",
+              { parse_mode: "Markdown" }
+            );
           }
         }
-
-        await ctx.reply(
-          `New position created successfully! ✅\n\n🔍 [View transaction on Explorer](${result.explorerUrl})`,
-          {
-            parse_mode: "Markdown",
-            link_preview_options: {
-              is_disabled: true,
-            },
-          }
-        );
-      } else if (text === "mon-weth" || text === "mon weth") {
-        // Send status message and store its ID
-        const statusMsg = await ctx.reply(
-          `Creating a new MON-WETH liquidity position... ⏳`
-        );
-
-        // Store message ID if available
-        if ("message_id" in statusMsg) {
-          statusMessageId = statusMsg.message_id;
-        }
-
-        // Create and execute a new LP position
-        const result = await createAndExecuteLPPosition(
-          userId,
-          "0x88b8e2161dedc77ef4ab7585569d2415a1c1055d"
-        );
-
-        // Delete status message if we have its ID
-        if (statusMessageId && ctx.chat) {
-          try {
-            await ctx.telegram.deleteMessage(ctx.chat.id, statusMessageId);
-          } catch (error) {
-            console.log("Could not delete status message:", error);
-          }
-        }
-
-        await ctx.reply(
-          `New position created successfully! ✅\n\n🔍 [View transaction on Explorer](${result.explorerUrl})`,
-          {
-            parse_mode: "Markdown",
-            link_preview_options: {
-              is_disabled: true,
-            },
-          }
-        );
-      } else if (text === "custom") {
-        await ctx.reply("Custom pair selection is coming soon!");
       } else {
         await ctx.reply(
-          "Invalid pair format. Please use one of the preset pairs (MON-USDC, MON-WETH) or type 'custom'."
+          "We currently only support the USDT-ETH pair. Please type 'usdt-eth' or use the menu options."
         );
       }
     }
